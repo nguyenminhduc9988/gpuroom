@@ -1,0 +1,8 @@
+{
+  "name": "gpuroom",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Will that LLM fit on your GPU? Zero-install fit calculator: quant-aware VRAM, KV cache, max context, fine-tuning memory.",
+  "license": "MIT",
+  "scripts": { "test": "node --test test/engine.test.js" }
+}
