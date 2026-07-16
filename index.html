@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gpuroom — Will that LLM fit on your GPU?</title>
+<meta name="description" content="Zero-install LLM GPU fit calculator: quant-aware VRAM, KV cache, max context, multi-GPU compare, fine-tuning memory. Runs entirely in your browser.">
+<style>
+:root{
+  --bg:#0a0a0f; --panel:#12121a; --border:#1f2230; --text:#f1f5f9; --muted:#8b93a7;
+  --acc1:#7c6cf6; --acc2:#4cc9f0;
+  --fits:#34d399; --tight:#fbbf24; --offload:#fb923c; --no:#f87171;
+}
+*{box-sizing:border-box;margin:0}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+a{color:var(--acc2);text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+header{display:flex;align-items:center;gap:14px;padding:22px 0;flex-wrap:wrap}
+.logo{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.logo .mark{background:linear-gradient(135deg,var(--acc1),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.tagline{color:var(--muted)}
+header .gh{margin-left:auto;border:1px solid var(--border);border-radius:8px;padding:6px 12px;transition:border-color .15s}
+header .gh:hover{border-color:var(--acc1)}
+.controls{position:sticky;top:0;z-index:5;background:rgba(10,10,15,.92);backdrop-filter:blur(8px);
+  border-block:1px solid var(--border);padding:14px 0;display:flex;gap:18px;align-items:end;flex-wrap:wrap}
+.ctl{display:flex;flex-direction:column;gap:5px}
+.ctl label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+select{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit}
+select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+input[type=range]{width:220px;accent-color:var(--acc1)}
+.seg{display:flex;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:5px 13px;font:inherit;font-size:13px;cursor:pointer;transition:all .15s}
+.seg button[aria-pressed=true],.tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#0a0a0f;font-weight:700}
+.tabs{display:flex;gap:6px;padding:18px 0 0}
+.tabs button{border:1px solid var(--border);background:var(--panel);color:var(--muted);border-radius:999px;padding:8px 18px;font:inherit;cursor:pointer;transition:all .15s}
+.tabs button:hover{border-color:var(--acc1);color:var(--text)}
+.hero{padding:22px 0 6px;font-size:26px;font-weight:700;letter-spacing:-.01em}
+.hero .val{background:linear-gradient(135deg,var(--acc1),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero small{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;padding:18px 0 30px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;transition:transform .15s,border-color .15s}
+.card:hover{transform:translateY(-2px);border-color:var(--acc1)}
+.card h3{font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card .sub{font-size:12px;color:var(--muted);margin-bottom:9px}
+.pill{font-size:11px;font-weight:800;letter-spacing:.05em;border-radius:999px;padding:2px 9px;color:#0a0a0f;white-space:nowrap}
+.pill.fits{background:var(--fits)} .pill.tight{background:var(--tight)}
+.pill.offload{background:var(--offload)} .pill.no{background:var(--no)}
+.bar{height:8px;border-radius:99px;background:#0d0d14;border:1px solid var(--border);overflow:hidden;display:flex;margin:8px 0 7px}
+.bar i{height:100%;transition:width .25s}
+.bar .w{background:linear-gradient(90deg,var(--acc1),var(--acc2))}
+.bar .k{background:var(--acc2);opacity:.65}
+.bar .o{background:var(--muted);opacity:.5}
+.bar .x{background:var(--no)}
+.meta{font-size:12.5px;color:var(--muted)}
+.meta b{color:var(--text);font-weight:600}
+table{border-collapse:collapse;width:100%;margin:16px 0 30px}
+th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:14px}
+th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;background:var(--panel)}
+tr.best td{background:rgba(124,108,246,.12)}
+.cmp-heads{display:flex;gap:18px;padding-top:16px;flex-wrap:wrap}
+.ft-break{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:16px 0 4px}
+.ft-break .card{text-align:center}
+.ft-break .big{font-size:22px;font-weight:800}
+.copy{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer;transition:border-color .15s}
+.copy:hover{border-color:var(--acc2)}
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:13px;padding:20px 0 34px;margin-top:10px}
+[hidden]{display:none!important}
+@media (max-width:640px){input[type=range]{width:150px}.hero{font-size:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="mark">▦ gpuroom</span></div>
+    <div class="tagline">Will that LLM fit on your GPU?</div>
+    <a class="gh" href="https://github.com/nguyenminhduc9988/gpuroom">GitHub ↗</a>
+  </header>
+
+  <div class="controls">
+    <div class="ctl"><label for="model">Model</label><select id="model"></select></div>
+    <div class="ctl"><label for="quant">Quantization</label><select id="quant"></select></div>
+    <div class="ctl"><label for="ctx">Context — <span id="ctxVal" class="num"></span></label>
+      <input type="range" id="ctx" min="0" max="100" step="1"></div>
+    <div class="ctl"><label id="kvLabel">KV cache</label><div class="seg" id="kvSeg" role="group" aria-labelledby="kvLabel"></div></div>
+    <button class="copy" id="share">Copy share link</button>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="fit" aria-selected="true">Fit matrix</button>
+    <button role="tab" data-tab="cmp" aria-selected="false">Compare GPUs</button>
+    <button role="tab" data-tab="ft" aria-selected="false">Fine-tune</button>
+  </nav>
+
+  <section id="tab-fit" role="tabpanel">
+    <div class="hero" id="hero"></div>
+    <div class="grid" id="fitGrid"></div>
+  </section>
+
+  <section id="tab-cmp" role="tabpanel" hidden>
+    <div class="cmp-heads">
+      <div class="ctl"><label for="gpuA">GPU A</label><select id="gpuA"></select></div>
+      <div class="ctl"><label for="gpuB">GPU B</label><select id="gpuB"></select></div>
+    </div>
+    <table id="cmpTable"></table>
+  </section>
+
+  <section id="tab-ft" role="tabpanel" hidden>
+    <div class="cmp-heads">
+      <div class="ctl"><label id="ftLabel">Method</label><div class="seg" id="ftSeg" role="group" aria-labelledby="ftLabel"></div></div>
+    </div>
+    <div class="ft-break" id="ftBreak"></div>
+    <div class="grid" id="ftGrid"></div>
+  </section>
+
+  <footer>Estimates from published model configs + GGUF bits-per-weight tables. MIT licensed.
+    No tracking, no backend — everything runs in your browser.</footer>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
